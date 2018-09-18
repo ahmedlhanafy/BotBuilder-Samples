@@ -27,7 +27,7 @@ const CITY_PROMPT = 'cityPrompt';
  * @param {PropertyStateAccessor} greetingStateAccessor property accessor for user state
  */
 class Greeting extends ComponentDialog {
-  constructor(dialogId, greetingStateAccessor) {
+  constructor(dialogId, greetingStateAccessor, lgResolver) {
     super(dialogId);
 
     // validate what was passed in
@@ -48,6 +48,7 @@ class Greeting extends ComponentDialog {
 
     // Save off our state accessor for later use
     this.greetingStateAccessor = greetingStateAccessor;
+    this.lgResolver = lgResolver;
   }
   /**
    * Waterfall Dialog step functions.
@@ -173,7 +174,9 @@ class Greeting extends ComponentDialog {
   async greetUser(dc) {
     const greetingState = await this.greetingStateAccessor.get(dc.context);
     // Display to the user their profile information and end dialog
-    await dc.context.sendActivity(`Hi ${greetingState.name}, from ${greetingState.city}, nice to meet you!`);
+    const activity = { text: `[welcomeUser], from ${greetingState.city}, nice to meet you!`, locale: dc.context.activity.locale };
+    await this.lgResolver.resolve(activity, new Map().set('userName', greetingState.name));
+    await dc.context.sendActivity(activity);
     await dc.context.sendActivity(`You can always say 'My name is <your name> to reintroduce yourself to me.`);
     return await dc.end();
   }

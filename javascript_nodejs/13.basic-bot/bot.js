@@ -50,7 +50,7 @@ class Bot {
      * @param {UserState} userState property accessor
      * @param {BotConfiguration} botConfig contents of the .bot file
      */
-    constructor(conversationState, userState, botConfig) {
+    constructor(conversationState, userState, botConfig, lgResolver) {
         if (!conversationState) throw ('Missing parameter.  conversationState is required');
         if (!userState) throw ('Missing parameter.  userState is required');
         if (!botConfig) throw ('Missing parameter.  botConfig is required');
@@ -71,7 +71,7 @@ class Bot {
 
         // Create top-level dialog(s)
         this.dialogs = new DialogSet(this.dialogState);
-        this.dialogs.add(new GreetingDialog(GREETING_DIALOG, this.greetingStateAccessor));
+        this.dialogs.add(new GreetingDialog(GREETING_DIALOG, this.greetingStateAccessor, lgResolver));
     }
 
     /**
@@ -167,7 +167,11 @@ class Bot {
         }
 
         if (topIntent === HELP_INTENT) {
-            await dc.context.sendActivity(`Let me try to provide some help.`);
+            await dc.context.sendActivity({
+                text: `[offerHelp]`,
+                locale: dc.context.activity.locale,
+            });
+            
             await dc.context.sendActivity(`I understand greetings, being asked for help, or being asked to cancel what I am doing.`);
             return true;        // this is an interruption
         }
