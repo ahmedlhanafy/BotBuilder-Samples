@@ -23,6 +23,13 @@ This samples shows how to:
   npm install
   ```
 - Create [required services](./deploymentScripts/DEPLOYMENT.MD)
+
+- Configure LG Resolver
+  - Clone botbuilder-js from https://github.com/ahmedlhanafy/botbuilder-js/tree/a-ahelh/lg_resolver to your machine
+  - Navigate to `libraries/botbuilder-ai`
+  - Run `npm link`
+  - Navigate back to `13.basic-bot` and run `npm link botbuilder-ai` 
+
 - Run the sample
   ```bash
   npm start
