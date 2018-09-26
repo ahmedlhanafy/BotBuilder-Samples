@@ -14,16 +14,19 @@ const path = require('path');
 const env = require('dotenv').config({ path: path.join(__dirname, '.env') });
 const restify = require('restify');
 
-const { BotFrameworkAdapter, BotStateSet,  MemoryStorage, ConversationState, UserState } = require('botbuilder');
+const { BotFrameworkAdapter, BotStateSet, MemoryStorage, ConversationState, UserState } = require('botbuilder');
 const { BotConfiguration } = require('botframework-config');
 
+const LGMiddleware = require('./lgMiddleware');
 const Bot = require('./bot');
-const BOT_CONFIGURATION = (process.env.NODE_ENV || 'development');
+
+const BOT_CONFIGURATION = process.env.NODE_ENV || 'development';
 const BOT_CONFIGURATION_ERROR = 1;
+const ENTITIES_PROPERTY = 'entitiesProperty';
 
 // Create server
 let server = restify.createServer();
-server.listen(process.env.port || process.env.PORT || 3978, function () {
+server.listen(process.env.port || process.env.PORT || 3978, function() {
     console.log(`\n${server.name} listening to ${server.url}`);
     console.log(`\nGet the Emulator: https://aka.ms/botframework-emulator`);
     console.log(`\nTo talk to your bot, open the basic-bot.bot file in the Emulator`);
@@ -33,8 +36,8 @@ server.listen(process.env.port || process.env.PORT || 3978, function () {
 // See https://aka.ms/about-bot-file to learn more about bot file its use.
 let botConfig;
 try {
-    botConfig = BotConfiguration.loadSync(path.join(__dirname, process.env.botFilePath), process.env.botFileSecret);
-} catch(err) {
+    botConfig = BotConfiguration.loadSync(path.join(__dirname, './basic-bot.bot'), process.env.botFileSecret);
+} catch (err) {
     console.log(`Error reading bot file. Please ensure you have valid botFilePath and botFileSecret set for your environment.`);
     process.exit(BOT_CONFIGURATION_ERROR);
 }
@@ -45,8 +48,9 @@ const endpointConfig = botConfig.findServiceByNameOrId(BOT_CONFIGURATION);
 // Create the adapter
 const adapter = new BotFrameworkAdapter({
     appId: endpointConfig.appId || process.env.microsoftAppID,
-    appPassword: endpointConfig.appPassword || process.env.microsoftAppPassword
+    appPassword: endpointConfig.appPassword || process.env.microsoftAppPassword,
 });
+
 
 // Setup our global error handler
 //
@@ -69,9 +73,6 @@ const adapter = new BotFrameworkAdapter({
 //     // make sure we clear the conversation state
 // });
 
-
-
-
 // CAUTION: The Memory Storage used here is for local bot debugging only. When the bot
 // is restarted, anything stored in memory will be gone.
 const memoryStorage = new MemoryStorage();
@@ -92,10 +93,19 @@ const userState = new UserState(memoryStorage);
 // CONSIDER:  if only using userState, then switch to adapter.use(userState);
 adapter.use(new BotStateSet(conversationState, userState));
 
+const entitiesStateAccessor = userState.createProperty(ENTITIES_PROPERTY);
+
+adapter.use(
+    new LGMiddleware(entitiesStateAccessor, {
+        applicationId: 'lgshowcases',
+        endpointKey: 'aaac97cafb0844d78b3727018cf8985c',
+    }),
+);
+
 // Create main dialog.
 let bot;
 try {
-    bot = new Bot(conversationState, userState, botConfig);
+    bot = new Bot(conversationState, userState, botConfig, entitiesStateAccessor);
 } catch (err) {
     console.log(`Error: ${err}`);
     process.exit(BOT_CONFIGURATION_ERROR);
@@ -104,8 +114,7 @@ try {
 // Listen for incoming requests
 server.post('/api/messages', (req, res) => {
     // Route received a request to adapter for processing
-    adapter.processActivity(req, res, async (turnContext) => {
-        // route to bot activity handler.
-        await bot.onTurn(turnContext);
+    adapter.processActivity(req, res, async context => {
+        await bot.onTurn(context);
     });
 });

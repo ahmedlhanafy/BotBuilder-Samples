@@ -50,7 +50,7 @@ class Bot {
      * @param {UserState} userState property accessor
      * @param {BotConfiguration} botConfig contents of the .bot file
      */
-    constructor(conversationState, userState, botConfig) {
+    constructor(conversationState, userState, botConfig, entitiesStateAccessor) {
         if (!conversationState) throw ('Missing parameter.  conversationState is required');
         if (!userState) throw ('Missing parameter.  userState is required');
         if (!botConfig) throw ('Missing parameter.  botConfig is required');
@@ -71,7 +71,7 @@ class Bot {
 
         // Create top-level dialog(s)
         this.dialogs = new DialogSet(this.dialogState);
-        this.dialogs.add(new GreetingDialog(GREETING_DIALOG, this.greetingStateAccessor));
+        this.dialogs.add(new GreetingDialog(GREETING_DIALOG, this.greetingStateAccessor, entitiesStateAccessor));
     }
 
     /**
@@ -84,16 +84,17 @@ class Bot {
      * @param {Context} context turn context from the adapter
      */
     async onTurn(context) {
+
         // Create a dialog context
         const dc = await this.dialogs.createContext(context);
 
         if(context.activity.type === ActivityTypes.Message) {
-            let dialogResult; 
-            
+            let dialogResult;
+
             // Perform a call to LUIS to retrieve results for the current activity message.
             const results = await this.luisRecognizer.recognize(context);
             const topIntent = LuisRecognizer.topIntent(results);
-            
+
             // update greeting state with any entities captured
             await this.updateGreetingState(results, context);
 
@@ -109,7 +110,7 @@ class Bot {
                 dialogResult = await dc.continue();
             }
 
-            // if no one has responded, 
+            // if no one has responded,
             if(!dc.context.responded) {
                 // examine results from active dialog
                 switch(dialogResult.status) {
@@ -122,7 +123,7 @@ class Bot {
                             default:
                                 // help or no intent identified, either way, let's provide some help
                                 // to the user
-                                await dc.context.sendActivity(`I didn't understand what you just said to me.`);
+                                await dc.context.sendActivity('[confusion]');
                                 break;
                         }
                     case DialogTurnStatus.waiting:
@@ -167,7 +168,11 @@ class Bot {
         }
 
         if (topIntent === HELP_INTENT) {
-            await dc.context.sendActivity(`Let me try to provide some help.`);
+            await dc.context.sendActivity({
+                text: `[offerHelp]`,
+                locale: dc.context.activity.locale,
+            });
+
             await dc.context.sendActivity(`I understand greetings, being asked for help, or being asked to cancel what I am doing.`);
             return true;        // this is an interruption
         }
@@ -176,15 +181,15 @@ class Bot {
 
     /**
      * Helper function to update greeting state with entities returned by LUIS.
-     * 
+     *
      * @param {LuisResults} luisResults - LUIS recognizer results
      * @param {DialogContext} dc - dialog context
      */
     async updateGreetingState(luisResult, context) {
-        // Do we have any entities? 
+        // Do we have any entities?
         if(Object.keys(luisResult.entities).length !== 1) {
             // get greetingState object using the accessor
-            let greetingState = await this.greetingStateAccessor.get(context); 
+            let greetingState = await this.greetingStateAccessor.get(context);
             if (greetingState === undefined) greetingState = new GreetingState();
             // see if we have any user name entities
             USER_NAME_ENTITIES.forEach(name => {
@@ -200,7 +205,7 @@ class Bot {
                     // capitalize and set user name
                     greetingState.city = lowerCaseCity.charAt(0).toUpperCase() + lowerCaseCity.substr(1);
                 }
-            }); 
+            });
             // set the new values
             await this.greetingStateAccessor.set(context, greetingState);
         }

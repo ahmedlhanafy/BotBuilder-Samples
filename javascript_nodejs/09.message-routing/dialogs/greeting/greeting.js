@@ -137,7 +137,7 @@ class Greeting extends ComponentDialog {
     }
     /**
      * Validator function to verify that user name meets required constraints.
-     * 
+     *
      * @param {DialogContext} context for this dialog
      * @param {PromptValidatorContext} prompt context for this prompt
      */
@@ -152,7 +152,7 @@ class Greeting extends ComponentDialog {
     }
     /**
      * Validator function to verify if city meets required constraints.
-     * 
+     *
      * @param {DialogContext} context for this dialog
      * @param {PromptValidatorContext} prompt context for this prompt
      */
@@ -167,13 +167,13 @@ class Greeting extends ComponentDialog {
     }
     /**
      * Helper function to greet user with information in greetingState.
-     * 
+     *
      * @param {DialogContext} dc context for this dialog
      */
     async greetUser(dc) {
         const greetingState = await this.greetingStateAccessor.get(dc.context);
         // Display to the user their profile information and end dialog
-        await dc.context.sendActivity(`Hi ${greetingState.name}, from ${greetingState.city}, nice to meet you!`);
+        await dc.context.sendActivity(`Hi ${greetingState.name}, from ${greetingState.city}, [showAppreciation]`);
         return await dc.end();
     }
 }

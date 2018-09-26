@@ -27,7 +27,7 @@ const CITY_PROMPT = 'cityPrompt';
  * @param {PropertyStateAccessor} greetingStateAccessor property accessor for user state
  */
 class Greeting extends ComponentDialog {
-  constructor(dialogId, greetingStateAccessor) {
+  constructor(dialogId, greetingStateAccessor, entitiesStateAccessor) {
     super(dialogId);
 
     // validate what was passed in
@@ -48,6 +48,7 @@ class Greeting extends ComponentDialog {
 
     // Save off our state accessor for later use
     this.greetingStateAccessor = greetingStateAccessor;
+    this.entitiesStateAccessor = entitiesStateAccessor;
   }
   /**
    * Waterfall Dialog step functions.
@@ -60,11 +61,11 @@ class Greeting extends ComponentDialog {
    */
   async initializeStateStep(dc, step) {
     let greetingState = await this.greetingStateAccessor.get(dc.context);
-    if(greetingState === undefined) { 
+    if(greetingState === undefined) {
       if (step.options && step.options.greetingState) {
         await this.greetingStateAccessor.set(dc.context, step.options.greetingState);
       } else {
-        await this.greetingStateAccessor.set(dc.context, new GreetingState());        
+        await this.greetingStateAccessor.set(dc.context, new GreetingState());
       }
     }
 
@@ -87,7 +88,7 @@ class Greeting extends ComponentDialog {
     }
     if(!greetingState.name) {
       // prompt for name, if missing
-      return await dc.prompt(NAME_PROMPT, 'What is your name?');
+      return await dc.prompt(NAME_PROMPT, '[nameQuestion]');
     } else {
       return await step.next();
     }
@@ -111,7 +112,8 @@ class Greeting extends ComponentDialog {
       await this.greetingStateAccessor.set(dc.context, greetingState);
     }
     if (!greetingState.city) {
-      return await dc.prompt(CITY_PROMPT, `Hello ${greetingState.name}, what city do you live in?`);
+        this._updateLGEntities(dc.context, 'username', greetingState.name);
+        return await dc.prompt(CITY_PROMPT, `[welcomeUser], [cityQuestion]`);
     } else {
       return await step.next();
     }
@@ -137,7 +139,7 @@ class Greeting extends ComponentDialog {
   }
   /**
    * Validator function to verify that user name meets required constraints.
-   * 
+   *
    * @param {DialogContext} context for this dialog
    * @param {PromptValidatorContext} prompt context for this prompt
    */
@@ -152,7 +154,7 @@ class Greeting extends ComponentDialog {
   }
   /**
    * Validator function to verify if city meets required constraints.
-   * 
+   *
    * @param {DialogContext} context for this dialog
    * @param {PromptValidatorContext} prompt context for this prompt
    */
@@ -167,16 +169,32 @@ class Greeting extends ComponentDialog {
   }
   /**
    * Helper function to greet user with information in greetingState.
-   * 
+   *
    * @param {DialogContext} dc context for this dialog
    */
   async greetUser(dc) {
     const greetingState = await this.greetingStateAccessor.get(dc.context);
     // Display to the user their profile information and end dialog
-    await dc.context.sendActivity(`Hi ${greetingState.name}, from ${greetingState.city}, nice to meet you!`);
+    const activity = { text: `[welcomeUser], from ${greetingState.city}, [showAppreciation]`, locale: dc.context.activity.locale };
+    this._updateLGEntities(dc.context, 'username', greetingState.name);
+    await dc.context.sendActivity(activity);
     await dc.context.sendActivity(`You can always say 'My name is <your name> to reintroduce yourself to me.`);
     return await dc.end();
   }
+
+
+  /**
+   * Helper function to easily update the entities property accessor
+   *
+   * @param context
+   * @param key
+   * @param value
+   */
+    async _updateLGEntities(context, key, value) {
+        const obj = await this.entitiesStateAccessor.get(context);
+        obj.entities = obj.entities || new Map();
+        await this.entitiesStateAccessor.set(context, obj.entities.set(key, value));
+    }
 }
 
 module.exports.GreetingDialog = Greeting;
